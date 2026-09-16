@@ -1,0 +1,9 @@
+`verilator_config
+
+// Waiver file for the lint run.
+// Only add entries with a reason, and keep the scope as narrow as possible --
+// prefer -file/-lines over switching a rule off globally.
+//
+// Examples:
+//   lint_off -rule UNUSED -file "*/rtl/fifo.sv" -match "*unused_ok*"
+//   lint_off -rule WIDTH  -file "*/rtl/counter.sv" -lines 42

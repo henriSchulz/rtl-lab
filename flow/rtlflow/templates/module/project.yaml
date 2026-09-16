@@ -1,0 +1,48 @@
+# =============================================================================
+# project.yaml  --  project configuration
+# -----------------------------------------------------------------------------
+# The single place where top modules, simulator and paths are decided. The
+# CLI reads this file and derives every tool invocation from it.
+#
+# Created on {{date}} at {{time}} by {{creator}} ({{tool}}).
+# =============================================================================
+
+project: "{{name}}"
+description: "{{description}}"
+author: "{{creator}}"
+created: "{{date}}"
+
+# -- Top modules --------------------------------------------------------------
+top:
+  design: ~          # synthesizable top module -- toplevel for cocotb
+  tb: ~              # SystemVerilog TB top -- toplevel for framework: sv
+
+# -- Sources ------------------------------------------------------------------
+# All paths relative to the project root.
+sources:
+  filelist: src/files.f     # top-level list, pulls in design.f + tb.f
+  design:   src/design.f
+  tb:       src/tb.f
+
+# -- Simulation ---------------------------------------------------------------
+sim:
+  simulator: verilator         # verilator | icarus
+  framework: cocotb            # cocotb | sv (classic SystemVerilog testbench)
+  rundir:    sim/run           # working directory, created and emptied by the flow
+  testdir:   src/tb/cocotb     # where the cocotb tests live
+  modules:   []                # cocotb test modules, e.g. [test_fifo]; cocotb only
+  waves:     fst               # fst | vcd | none
+  timescale: 1ns/1ps
+  defines:   []                # e.g. [SIM, ASSERT_ON]
+  plusargs:  []                # e.g. ["+verbosity=high"]
+
+# -- Lint ---------------------------------------------------------------------
+lint:
+  tool:    verilator        # verilator | slang | verible
+  rundir:  lint
+  waivers: lint/waivers.vlt
+  fatal:   true             # treat warnings as errors
+
+# -- Docs ---------------------------------------------------------------------
+docs:
+  dir: docs

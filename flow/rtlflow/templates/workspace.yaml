@@ -1,0 +1,26 @@
+# =============================================================================
+# workspace.yaml  --  root of the RTL workspace
+# -----------------------------------------------------------------------------
+# The mere existence of this file marks the workspace root. The CLI searches
+# for it upwards from the current directory.
+#
+# Created on {{date}} by {{creator}} ({{tool}}).
+# =============================================================================
+
+workspace: "{{name}}"
+
+# Where the modules live, and where `flow new` takes its template from.
+layout:
+  modules:   modules
+  templates: templates
+
+# Defaults for newly created modules.
+defaults:
+  simulator: verilator      # verilator | icarus
+  waves:     fst            # fst | vcd | none
+  viewer:    ~              # gtkwave | surfer; ~ = pick automatically
+
+  # File header of generated files. ~ = from `git config`, else login name;
+  # $RTL_AUTHOR / $RTL_EMAIL beat both for a single call.
+  author:    ~
+  email:     ~

@@ -1,0 +1,23 @@
+# Simulations- und Lint-Artefakte
+modules/*/sim/run/*
+!modules/*/sim/run/.gitkeep
+modules/*/lint/*
+!modules/*/lint/waivers.vlt
+
+# Verilator / cocotb
+obj_dir/
+*.fst
+*.fst.hier
+*.vcd
+*.ghw
+results.xml
+sim_build/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Virtualenv des Workspace
+.venv/
+venv/
