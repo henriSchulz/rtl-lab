@@ -21,3 +21,5 @@ rtl/cpu.sv
 
 
 rtl/regfile.sv
+rtl/imm_gen.sv
+rtl/branch_unit.sv

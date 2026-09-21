@@ -27,6 +27,24 @@ package cpu_pkg;
         ALU_AND  = 4'b0111 // AND (a & b)
     } alu_op_e;
 
+
+    typedef enum logic [2:0] {
+        IMM_I,  
+        IMM_S,  
+        IMM_B, 
+        IMM_U, 
+        IMM_J
+    } imm_type_e;
+
+    typedef enum logic [2:0] {
+        BR_EQ  = 3'b000,  // branch if equal
+        BR_NE  = 3'b001,  // branch if not equal
+        BR_LT  = 3'b100,  // branch if less than (signed)
+        BR_GE  = 3'b101,  // branch if greater or equal (signed)
+        BR_LTU = 3'b110,  // branch if less than (unsigned)
+        BR_GEU = 3'b111   // branch if greater or equal (unsigned)
+    } branch_op_e;
+
 endpackage
 
 `default_nettype wire

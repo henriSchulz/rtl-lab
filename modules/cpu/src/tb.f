@@ -19,3 +19,5 @@
 // tb/tb_top.sv
 tb/tb_alu.sv
 tb/tb_regfile.sv
+tb/tb_imm_gen.sv
+tb/tb_branch_unit.sv

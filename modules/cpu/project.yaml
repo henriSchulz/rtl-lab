@@ -15,7 +15,7 @@ created: "2026-09-21"
 # -- Top modules --------------------------------------------------------------
 top:
   design: cpu        # synthesizable top module -- toplevel for cocotb
-  tb: tb_regfile      # SystemVerilog TB top -- toplevel for framework: sv
+  tb: tb_imm_gen      # SystemVerilog TB top -- toplevel for framework: sv
 
 # -- Sources ------------------------------------------------------------------
 # All paths relative to the project root.
