@@ -20,6 +20,8 @@ DEFAULTS: dict[str, Any] = {
     "author": None,
     "created": None,
     "top": {"design": None, "tb": None},
+    # Other modules whose RTL this one builds on (names or project.yaml paths).
+    "dependencies": [],
     "sources": {
         # Directories (recursive), files or globs, relative to the module root.
         "rtl": ["src/rtl"],

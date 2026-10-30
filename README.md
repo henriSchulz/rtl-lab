@@ -133,6 +133,10 @@ created from then on follows.
   their directories become include dirs. Packages are ordered first (and by
   their dependencies on each other), the rest by path. Defines go in
   `sim.defines`. The CLI hands tools absolute paths only.
+- **Dependencies.** `dependencies: [alu, ../x/project.yaml]` in `project.yaml`
+  pulls the `sources.rtl` of other modules (a workspace module name or a path
+  to a `project.yaml`, transitively) into lint and sim. Their testbenches stay
+  out, cycles abort, and two modules defining the same RTL module will clash.
 - **`sources.rtl` is the synthesis view:** whatever lies there has to pass
   synthesis. Everything non-synthesizable belongs under `sources.tb`.
 - **`sources.tb` holds SystemVerilog only.** cocotb tests live in

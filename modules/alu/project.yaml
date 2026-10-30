@@ -17,6 +17,12 @@ top:
   design: alu        # synthesizable top module -- toplevel for cocotb
   tb: tb_alu         # SystemVerilog TB top -- toplevel for framework: sv
 
+# -- Dependencies -------------------------------------------------------------
+# Other modules whose RTL this one builds on: a module name from this workspace
+# or a path to its project.yaml. Their sources.rtl (and theirs, transitively)
+# join this module's build; their testbenches do not.
+dependencies: []           # e.g. [alu, ../shared/project.yaml]
+
 # -- Sources ------------------------------------------------------------------
 # Directories (searched recursively), files or globs, relative to the project
 # root. No filelists: whatever lies in these places is compiled. Packages are

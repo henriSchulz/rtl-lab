@@ -64,17 +64,57 @@ class Module:
             value = [value]
         return [str(entry) for entry in value]
 
+    def dependency(self, entry: str) -> "Module":
+        """Resolves a `dependencies` entry: a workspace module name, a module
+        directory or a path to a project.yaml (relative to this module)."""
+        path = (self.root / entry).resolve()
+        if path.is_file() and path.name.endswith((".yaml", ".yml")):
+            return Module.load(path.parent, path.name)
+        if (path / config.CONFIG_NAME).is_file():
+            return Module.load(path)
+        ws, _ = discover(self.root)
+        if ws is not None and entry in ws.module_names():
+            return ws.get(entry)
+        raise Abort(
+            f"{self.name}: dependency '{entry}' not found",
+            hint="Use a module name from this workspace or a path to its project.yaml.",
+        )
+
+    def dependencies(self, _stack: tuple[Path, ...] = ()) -> "list[Module]":
+        """All modules this one depends on, transitively, dependencies first."""
+        if self.root in _stack:
+            chain = " -> ".join(p.name for p in (*_stack, self.root))
+            raise Abort(f"Modules depend on each other in a cycle: {chain}")
+        result: list[Module] = []
+        for entry in self.cfg.get("dependencies") or []:
+            dep = self.dependency(str(entry))
+            for sub in (*dep.dependencies((*_stack, self.root)), dep):
+                if all(sub.root != seen.root for seen in result):
+                    result.append(sub)
+        return result
+
     def sources(self, which: str = "all") -> sources.Sources:
-        """Scans the sources. `which` is all | rtl | tb."""
+        """Scans the sources. `which` is all | rtl | tb.
+
+        RTL of dependencies is part of `rtl` (and `all`); their testbenches
+        are not.
+        """
         kinds = ("rtl", "tb") if which == "all" else (which,)
         result = sources.Sources()
         for kind in kinds:
-            result.merge(sources.scan(self.root, self.entries(kind), f"sources.{kind}"))
+            if kind == "rtl":
+                for dep in self.dependencies():
+                    result.merge(sources.scan(dep.root, dep.entries("rtl"),
+                                              f"{dep.name}: sources.rtl", sort=False))
+            result.merge(sources.scan(self.root, self.entries(kind),
+                                      f"sources.{kind}", sort=kind != "rtl"))
+        if "rtl" in kinds:
+            result.sources = sources.order(result.sources)
         return result
 
     @classmethod
-    def load(cls, root: Path) -> "Module":
-        cfg = config.load(root / config.CONFIG_NAME)
+    def load(cls, root: Path, filename: str = config.CONFIG_NAME) -> "Module":
+        cfg = config.load(root / filename)
         return cls(name=cfg.get("project") or root.name, root=root, cfg=cfg)
 
 

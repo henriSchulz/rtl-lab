@@ -84,6 +84,7 @@ def info(module_name: str | None = None) -> int:
     rows = [
         ["top.design", cfg["top"]["design"] or "-"],
         ["top.tb", cfg["top"]["tb"] or "-"],
+        ["dependencies", ", ".join(str(d) for d in cfg["dependencies"]) or "-"],
         ["sim top", f"{module.sim_top(framework) or '-'}  (framework: {framework})"],
         ["simulator", cfg["sim"]["simulator"]],
         ["waves", cfg["sim"]["waves"]],

@@ -48,7 +48,7 @@ def _strip_comments(text: str) -> str:
     return _LINE_COMMENT.sub("", _BLOCK_COMMENT.sub("", text))
 
 
-def _order(files: list[Path]) -> list[Path]:
+def order(files: list[Path]) -> list[Path]:
     """Packages first (dependencies before users), everything else by path.
 
     Compilers that read files in order need a package before the first use.
@@ -86,7 +86,8 @@ def _order(files: list[Path]) -> list[Path]:
     return ordered + others
 
 
-def scan(root: Path, entries: list[str], key: str = "sources.rtl") -> Sources:
+def scan(root: Path, entries: list[str], key: str = "sources.rtl",
+         sort: bool = True) -> Sources:
     """Expands `entries` (dirs, files, globs below `root`) into sources."""
     result = Sources()
     found_files: list[Path] = []
@@ -118,5 +119,5 @@ def scan(root: Path, entries: list[str], key: str = "sources.rtl") -> Sources:
             elif path.suffix in SOURCE_SUFFIXES and path not in found_files:
                 found_files.append(path)
 
-    result.sources = _order(found_files)
+    result.sources = order(found_files) if sort else found_files
     return result
