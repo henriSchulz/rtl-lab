@@ -14,11 +14,8 @@ rtl-lab/
     └── alu/
         ├── project.yaml  top modules, simulator, paths
         ├── src/
-        │   ├── files.f   -f design.f  +  -f tb.f
-        │   ├── design.f  synthesizable RTL
-        │   ├── tb.f      SystemVerilog testbench sources
-        │   ├── rtl/      alu_pkg.sv, alu.sv
-        │   └── tb/       SV benches (tb_*.sv)
+        │   ├── rtl/      alu_pkg.sv, alu.sv  (sources.rtl)
+        │   └── tb/       SV benches (tb_*.sv)  (sources.tb)
         │       └── cocotb/   cocotb tests (test_*.py)
         ├── lint/         lint logs + waivers.vlt
         ├── sim/run/      build, waveform, results
@@ -32,12 +29,12 @@ rtl-lab/
 | `flow init [name]` | create a workspace |
 | `flow new <name>` | create a module from the template, RTL and testbench included |
 | `flow new <name> --tb sv\|cocotb\|both\|none` | pick the testbench kind (default: cocotb) |
-| `flow add rtl <name>` | create a `.sv` and list it in `design.f` |
+| `flow add rtl <name>` | create a `.sv` in the first directory of `sources.rtl` |
 | `flow add tb <name> [--cocotb\|--sv]` | create a testbench; without a flag it follows `sim.framework` |
 | `flow ls` | modules in the workspace with their status |
 | `flow info` | resolved configuration of a module |
-| `flow files` | show the resolved filelist (`--design`, `--tb`) |
-| `flow lint` | verilator lint over `design.f`, log into `lint/` |
+| `flow files` | show the resolved source files (`--design` for RTL only, `--tb`) |
+| `flow lint` | verilator lint over everything in `sources.rtl`, log into `lint/` |
 | `flow sim` | run the tests; `-t` a single test, `-w` open the waveform, `--framework`, `--dry-run` |
 | `flow wave` | last waveform in a viewer |
 | `flow clean` | empty `sim/run` and `lint` (`--all` for every module) |
@@ -54,8 +51,8 @@ Both are first-class, and a module can hold both at once.
 |---|---|---|
 | `sim.framework` | `cocotb` | `sv` |
 | files | `src/tb/cocotb/test_<name>.py` | `src/tb/tb_<name>.sv` |
-| registered in | `sim.modules` in `project.yaml` | `src/tb.f` |
-| directory | `sim.testdir` (default `src/tb/cocotb`) | next to `tb.f`, i.e. `src/tb/` |
+| registered in | `sim.modules` in `project.yaml` | found via `sources.tb` |
+| directory | `sim.testdir` (default `src/tb/cocotb`) | `src/tb/` |
 | toplevel | `top.design` (cocotb drives the DUT directly) | `top.tb` |
 | single test | `flow sim -t test_reset` | `flow sim -t test_reset` → `+TESTCASE=test_reset` |
 | verdict | cocotb's `results.xml` | `TEST PASSED` / `TEST FAILED` + `$fatal` |
@@ -68,7 +65,7 @@ flow add tb decoder --sv alu   # add an SV bench to an existing module
 ```
 
 Python and SystemVerilog stay apart: cocotb tests live one level down in
-`src/tb/cocotb/`, so `tb.f` and the `.sv` benches never share a folder with
+`src/tb/cocotb/`, so the `.sv` benches and the tests never share a folder with
 `__pycache__`. `sim.testdir` points there and is what cocotb imports from --
 move it and the tests move with it.
 
@@ -88,8 +85,8 @@ from there.
 | Command | Files |
 |---|---|
 | `flow init` | `workspace.yaml`, `templates/`, `modules/` |
-| `flow new` | the module tree: `project.yaml`, `src/files.f`, `src/design.f`, `src/tb.f`, `lint/waivers.vlt`, plus `src/rtl/<name>.sv` and the testbench(es) |
-| `flow add` | one `src/rtl/<name>.sv`, `src/tb/cocotb/test_<name>.py` or `src/tb/tb_<name>.sv`, and its entry in `design.f` / `sim.modules` / `tb.f` |
+| `flow new` | the module tree: `project.yaml`, `lint/waivers.vlt`, plus `src/rtl/<name>.sv` and the testbench(es) |
+| `flow add` | one `src/rtl/<name>.sv`, `src/tb/cocotb/test_<name>.py` or `src/tb/tb_<name>.sv`, and, for cocotb, its entry in `sim.modules` |
 | `flow lint` | `lint/<module>.log` |
 | `flow sim` | `sim/run/`: `run_sim.py` (cocotb) or `sim.log` (SV), `build/`, `results.xml`, the waveform |
 
@@ -129,13 +126,17 @@ created from then on follows.
 
 ## Conventions
 
-- **Filelists** are parsed by the CLI itself; relative paths resolve
-  **relative to the `.f` file** they appear in. Tools only ever see absolute
-  paths, so they all behave the same.
-- **`tb.f` holds SystemVerilog only.** cocotb tests live in `project.yaml`
-  under `sim.modules` — the compiler never sees them.
-- **`design.f` is the synthesis view:** whatever is listed there has to pass
-  synthesis. Everything non-synthesizable belongs in `tb.f`.
+- **No filelists.** `sources.rtl` and `sources.tb` in `project.yaml` list
+  directories (searched recursively), files or globs, relative to the module
+  root; defaults are `[src/rtl]` and `[src/tb]`. Drop a `.sv`/`.v` file in
+  there and it is part of the build. `.svh`/`.vh` headers are not compiled,
+  their directories become include dirs. Packages are ordered first (and by
+  their dependencies on each other), the rest by path. Defines go in
+  `sim.defines`. The CLI hands tools absolute paths only.
+- **`sources.rtl` is the synthesis view:** whatever lies there has to pass
+  synthesis. Everything non-synthesizable belongs under `sources.tb`.
+- **`sources.tb` holds SystemVerilog only.** cocotb tests live in
+  `project.yaml` under `sim.modules` -- the compiler never sees them.
 
 ## Installation
 

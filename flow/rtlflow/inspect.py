@@ -1,4 +1,4 @@
-"""Reporting: list modules, show configuration and filelists, check the setup."""
+"""Reporting: list modules, show configuration and sources, check the setup."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ def ls() -> int:
     rows = []
     for module in modules:
         try:
-            sources = str(len(module.sources("design").sources))
+            sources = str(len(module.sources("rtl").sources))
         except Abort:
             sources = "?"
 
@@ -96,10 +96,10 @@ def info(module_name: str | None = None) -> int:
     print()
 
     paths = []
-    for label, key in (("filelist", "filelist"), ("design", "design"), ("tb", "tb")):
-        entry = cfg["sources"][key]
-        exists = module.path(entry).is_file()
-        paths.append([label, entry, "ok" if exists else "missing"])
+    for key in ("rtl", "tb"):
+        for entry in module.entries(key):
+            exists = any(ch in entry for ch in "*?[") or module.path(entry).exists()
+            paths.append([f"sources.{key}", entry, "ok" if exists else "missing"])
     testdir = cfg["sim"]["testdir"]
     paths.append([
         "testdir", testdir,
@@ -112,27 +112,21 @@ def info(module_name: str | None = None) -> int:
     return 0
 
 
-def files(module_name: str | None = None, which: str = "filelist") -> int:
+def files(module_name: str | None = None, which: str = "all") -> int:
     _, module = workspace.resolve(module_name)
     resolved = module.sources(which)
 
-    ui.step(f"{module.name}: {module.cfg['sources'][which]} resolved")
-
-    ui.note("filelists read:")
-    for path in resolved.visited:
-        print(f"    {path}")
+    shown_from = ", ".join(
+        e for kind in (("rtl", "tb") if which == "all" else (which,))
+        for e in module.entries(kind)
+    )
+    ui.step(f"{module.name}: sources.{which} resolved  ({shown_from})")
 
     if resolved.incdirs:
         print()
-        ui.note("+incdir+:")
+        ui.note("include dirs:")
         for path in resolved.incdirs:
             print(f"    {path}")
-
-    if resolved.defines:
-        print()
-        ui.note("+define+:")
-        for name, value in resolved.defines.items():
-            print(f"    {name}" + (f"={value}" if value else ""))
 
     print()
     ui.note(f"source files ({len(resolved.sources)}):")
@@ -145,7 +139,7 @@ def files(module_name: str | None = None, which: str = "filelist") -> int:
 
     if resolved.is_empty():
         print()
-        ui.warn("No source files -- the lists hold nothing but comments.")
+        ui.warn("No source files found in the configured directories.")
     return 0
 
 

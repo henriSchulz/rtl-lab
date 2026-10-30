@@ -18,11 +18,12 @@ top:
   tb: tb_alu         # SystemVerilog TB top -- toplevel for framework: sv
 
 # -- Sources ------------------------------------------------------------------
-# All paths relative to the project root.
+# Directories (searched recursively), files or globs, relative to the project
+# root. No filelists: whatever lies in these places is compiled. Packages are
+# ordered first automatically; directories with headers become include dirs.
 sources:
-  filelist: src/files.f     # top-level list, pulls in design.f + tb.f
-  design:   src/design.f
-  tb:       src/tb.f
+  rtl: [src/rtl]            # synthesizable RTL
+  tb:  [src/tb]             # SystemVerilog testbenches (never linted)
 
 # -- Simulation ---------------------------------------------------------------
 sim:

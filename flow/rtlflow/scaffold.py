@@ -10,7 +10,7 @@ from . import config, meta, ui, workspace
 from .ui import Abort
 
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
-TEXT_SUFFIXES = {".yaml", ".yml", ".f", ".sv", ".svh", ".v", ".vh", ".py", ".md", ".vlt"}
+TEXT_SUFFIXES = {".yaml", ".yml", ".sv", ".svh", ".v", ".vh", ".py", ".md", ".vlt"}
 
 # In YAML the placeholders sit inside double quotes, so a description holding
 # ": " or a "#" cannot break the file.
@@ -19,9 +19,8 @@ YAML_SUFFIXES = {".yaml", ".yml"}
 # What `flow new --tb` accepts.
 TB_KINDS = ("cocotb", "sv", "both", "none")
 
-# Where testbenches live. SystemVerilog benches sit next to the .f list that
-# names them (src/tb/, matching the `tb/...` entries in tb.f); cocotb tests
-# get their own directory one level down -- sim.testdir in project.yaml --
+# Where testbenches live. SystemVerilog benches sit in src/tb/ (found through
+# sources.tb); cocotb tests get their own directory one level down -- sim.testdir in project.yaml --
 # so python and SystemVerilog never share a folder.
 
 
@@ -32,6 +31,17 @@ def check_identifier(name: str, what: str = "Name") -> str:
             hint="Allowed: letters, digits and _, starting with a letter or _.",
         )
     return name
+
+
+def _first_dir(entries: list[str] | str, key: str) -> str:
+    """Where new files go: the first plain directory in a `sources.*` list."""
+    if isinstance(entries, str):
+        entries = [entries]
+    for entry in entries:
+        if not any(ch in entry for ch in "*?[") and not Path(entry).suffix:
+            return entry
+    raise Abort(f"{key} names no directory to put new files into",
+                hint="List at least one directory, e.g. src/rtl.")
 
 
 def template_root(ws: workspace.Workspace | None) -> Path:
@@ -92,31 +102,15 @@ def write_from_template(source: Path, target: Path, **values: str) -> None:
     )
 
 
-def append_source(filelist_path: Path, entry: str) -> bool:
-    """Appends a source path to a .f list, skipping duplicates."""
-    text = filelist_path.read_text(encoding="utf-8") if filelist_path.exists() else ""
-    for line in text.splitlines():
-        stripped = re.sub(r"(^|\s)(//|#).*$", "", line).strip()
-        if stripped == entry:
-            return False
-    if text and not text.endswith("\n"):
-        text += "\n"
-    filelist_path.write_text(f"{text}{entry}\n", encoding="utf-8")
-    return True
-
-
 # ---------------------------------------------------------------------------
 # Single files -- shared by `flow new` and `flow add`.
 # ---------------------------------------------------------------------------
 
-def _emit_rtl(root: Path, cfg_path: Path, design_f: Path, templates: Path,
+def _emit_rtl(root: Path, cfg_path: Path, rtl_dir: Path, templates: Path,
               name: str, values: dict[str, str], set_top: bool) -> None:
-    target = root / "src" / "rtl" / f"{name}.sv"
+    target = rtl_dir / f"{name}.sv"
     write_from_template(templates / "rtl_module.sv", target, **values)
     ui.ok(target.relative_to(root))
-
-    if append_source(design_f, f"rtl/{name}.sv"):
-        ui.ok(f"{design_f.name}: added rtl/{name}.sv")
     if set_top:
         config.set_scalar(cfg_path, "top.design", name)
         ui.ok(f"top.design = {name}")
@@ -134,15 +128,11 @@ def _emit_cocotb_test(root: Path, cfg_path: Path, testdir: str, templates: Path,
         ui.warn("could not extend sim.modules automatically")
 
 
-def _emit_sv_tb(root: Path, cfg_path: Path, tb_f: Path, templates: Path,
+def _emit_sv_tb(root: Path, cfg_path: Path, tb_dir: Path, templates: Path,
                 name: str, values: dict[str, str], set_top: bool) -> None:
-    # tb.f addresses its sources as tb/<file>, so that is where they go.
-    target = tb_f.parent / "tb" / f"tb_{name}.sv"
+    target = tb_dir / f"tb_{name}.sv"
     write_from_template(templates / "sv_tb.sv", target, **values)
     ui.ok(target.relative_to(root))
-
-    if append_source(tb_f, f"tb/tb_{name}.sv"):
-        ui.ok(f"{tb_f.name}: added tb/tb_{name}.sv")
     if set_top:
         config.set_scalar(cfg_path, "top.tb", f"tb_{name}")
         ui.ok(f"top.tb = tb_{name}")
@@ -241,13 +231,14 @@ def _fill(ws: workspace.Workspace, target: Path, name: str, values: dict[str, st
         return
 
     templates = template_root(ws)
-    _emit_rtl(target, cfg_path, target / "src" / "design.f", templates,
+    sources = config.load(cfg_path)["sources"]
+    _emit_rtl(target, cfg_path, target / _first_dir(sources["rtl"], "sources.rtl"), templates,
               name, values, set_top=True)
 
     if tb in ("cocotb", "both"):
         _emit_cocotb_test(target, cfg_path, testdir, templates, name, values)
     if tb in ("sv", "both"):
-        _emit_sv_tb(target, cfg_path, target / "src" / "tb.f", templates,
+        _emit_sv_tb(target, cfg_path, target / _first_dir(sources["tb"], "sources.tb"), templates,
                     name, values, set_top=True)
     if tb == "sv":
         config.set_scalar(cfg_path, "sim.framework", "sv")
@@ -277,7 +268,7 @@ def add(kind: str, name: str, module_name: str | None = None,
         _emit_rtl(
             module.root,
             module.cfg_path,
-            module.path(module.cfg["sources"]["design"]),
+            module.path(_first_dir(module.cfg["sources"]["rtl"], "sources.rtl")),
             templates,
             name,
             values,
@@ -298,7 +289,7 @@ def add(kind: str, name: str, module_name: str | None = None,
             _emit_sv_tb(
                 module.root,
                 module.cfg_path,
-                module.path(module.cfg["sources"]["tb"]),
+                module.path(_first_dir(module.cfg["sources"]["tb"], "sources.tb")),
                 templates,
                 name,
                 values,

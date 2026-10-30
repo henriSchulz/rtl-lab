@@ -15,7 +15,7 @@ Typical flow:
   flow new fifo                 create a module (RTL skeleton + cocotb test)
   flow new fifo --tb sv         same, but with a SystemVerilog testbench
   cd modules/fifo
-  flow lint                     verilator lint over src/design.f
+  flow lint                     verilator lint over everything in sources.rtl
   flow sim                      run the tests, waveform lands in sim/run/
   flow sim -t test_reset        a single test only
   flow sim --framework sv       run the SV testbench instead of cocotb
@@ -83,11 +83,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_info = sub.add_parser("info", help="show a module's configuration")
     _module_arg(p_info)
 
-    p_files = sub.add_parser("files", help="show the resolved filelist")
+    p_files = sub.add_parser("files", help="show the resolved source files")
     _module_arg(p_files)
     group = p_files.add_mutually_exclusive_group()
-    group.add_argument("--design", action="store_true", help="src/design.f only")
-    group.add_argument("--tb", action="store_true", help="src/tb.f only")
+    group.add_argument("--design", action="store_true", help="sources.rtl only")
+    group.add_argument("--tb", action="store_true", help="sources.tb only")
 
     sub.add_parser("doctor", help="check which tools are installed")
 
@@ -141,7 +141,7 @@ def dispatch(args: argparse.Namespace) -> int:
         return inspect.info(args.module)
 
     if command == "files":
-        which = "design" if args.design else "tb" if args.tb else "filelist"
+        which = "rtl" if args.design else "tb" if args.tb else "all"
         return inspect.files(args.module, which)
 
     if command == "doctor":

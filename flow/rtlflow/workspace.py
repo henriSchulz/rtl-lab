@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from . import config, filelist
+from . import config, sources
 from .ui import Abort
 
 
@@ -57,12 +57,20 @@ class Module:
             return self.cfg["top"]["tb"]
         return self.cfg["top"]["design"]
 
-    def sources(self, which: str = "filelist") -> filelist.Filelist:
-        """Resolves the filelist. `which` is filelist | design | tb."""
-        entry = self.cfg["sources"].get(which)
-        if not entry:
-            raise Abort(f"{self.name}: sources.{which} is not set")
-        return filelist.parse(self.path(entry))
+    def entries(self, which: str) -> list[str]:
+        """The `sources.<which>` list (rtl | tb)."""
+        value = self.cfg["sources"].get(which) or []
+        if isinstance(value, str):
+            value = [value]
+        return [str(entry) for entry in value]
+
+    def sources(self, which: str = "all") -> sources.Sources:
+        """Scans the sources. `which` is all | rtl | tb."""
+        kinds = ("rtl", "tb") if which == "all" else (which,)
+        result = sources.Sources()
+        for kind in kinds:
+            result.merge(sources.scan(self.root, self.entries(kind), f"sources.{kind}"))
+        return result
 
     @classmethod
     def load(cls, root: Path) -> "Module":

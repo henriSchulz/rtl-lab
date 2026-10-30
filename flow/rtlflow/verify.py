@@ -79,10 +79,10 @@ def lint(module_name: str | None = None, fix_top: bool = True) -> int:
         )
 
     binary = tools.require("verilator")
-    sources = module.sources("design")
+    sources = module.sources("rtl")
     if sources.is_empty():
         raise Abort(
-            f"{module.name}: {module.cfg['sources']['design']} lists no source files",
+            f"{module.name}: no RTL found in sources.rtl ({', '.join(module.entries('rtl')) or 'empty'})",
             hint=f"Add a module with `flow add rtl <name> {module.name}`.",
         )
 
@@ -374,9 +374,9 @@ def sim(module_name: str | None = None, testcase: str | None = None,
             ),
         )
 
-    sources = module.sources("filelist")
+    sources = module.sources("all")
     if sources.is_empty():
-        raise Abort(f"{module.name}: {module.cfg['sources']['filelist']} lists no source files")
+        raise Abort(f"{module.name}: no sources found in sources.rtl / sources.tb")
 
     rundir = module.rundir
     rundir.mkdir(parents=True, exist_ok=True)

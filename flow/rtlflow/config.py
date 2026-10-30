@@ -21,9 +21,9 @@ DEFAULTS: dict[str, Any] = {
     "created": None,
     "top": {"design": None, "tb": None},
     "sources": {
-        "filelist": "src/files.f",
-        "design": "src/design.f",
-        "tb": "src/tb.f",
+        # Directories (recursive), files or globs, relative to the module root.
+        "rtl": ["src/rtl"],
+        "tb": ["src/tb"],
     },
     "sim": {
         "simulator": "verilator",
