@@ -18,17 +18,19 @@
 `default_nettype none
 
 module tb_branch_unit;
+  import cpu_pkg::*;
 
-  localparam int unsigned Width     = 8;
+  localparam int unsigned Width     = 32;
   localparam time         ClkPeriod = 10ns;
   localparam int unsigned Timeout   = 10_000;   // clock cycles before giving up
-
+  
   logic             clk;
-  logic             rst_n;
-  logic [Width-1:0] data_i;
-  logic             valid_i;
-  logic [Width-1:0] data_o;
-  logic             valid_o;
+  logic [Width-1:0] operand_a_i;
+  logic [Width-1:0] operand_b_i;
+  branch_op_e       branch_op_i;
+  logic             branch_taken_o;
+
+
 
   int unsigned errors   = 0;
   string       testcase = "";                   // from +TESTCASE=<name>
@@ -37,12 +39,10 @@ module tb_branch_unit;
   branch_unit #(
       .Width (Width)
   ) dut (
-      .clk_i   (clk),
-      .rst_ni  (rst_n),
-      .data_i  (data_i),
-      .valid_i (valid_i),
-      .data_o  (data_o),
-      .valid_o (valid_o)
+    .operand_a_i(operand_a_i),
+    .operand_b_i(operand_b_i),
+    .branch_op_i(branch_op_i),
+    .branch_taken_o(branch_taken_o)
   );
 
   // -- Clock ------------------------------------------------------------
@@ -63,15 +63,7 @@ module tb_branch_unit;
   // Stimulus is driven non-blocking: the DUT samples the old value at the
   // clock edge, the new one lands afterwards. Blocking assignments right at
   // the edge would race with the design.
-  task automatic reset(int unsigned cycles = 3);
-    rst_n   <= 1'b0;
-    data_i  <= '0;
-    valid_i <= 1'b0;
-    repeat (cycles) @(posedge clk);
-    rst_n <= 1'b1;
-    @(posedge clk);
-  endtask
-
+  
   function automatic void check(bit condition, string message);
     if (!condition) begin
       errors++;
@@ -85,38 +77,77 @@ module tb_branch_unit;
   endfunction
 
   // -- Tests ------------------------------------------------------------
-  task automatic test_reset();
-    reset();
-    @(negedge clk);                             // look away from the edge
-    check(valid_o === 1'b0, $sformatf("valid_o after reset: %b", valid_o));
-    check(data_o === '0, $sformatf("data_o after reset: %0h", data_o));
+
+  task automatic check_branch(string name, logic [Width-1:0] a, logic [Width-1:0] b,
+                              branch_op_e op, logic expected);
+    operand_a_i = a;
+    operand_b_i = b;
+    branch_op_i = op;
+    #1ns;
+
+    check(branch_taken_o == expected,
+          $sformatf("%s (%s): expected %b, got %b", name, op.name(), expected, branch_taken_o));
   endtask
 
-  task automatic test_passthrough();
-    logic [Width-1:0] value;
-    reset();
-    repeat (32) begin
-      value = Width'($urandom());
-
-      @(posedge clk);
-      data_i  <= value;
-      valid_i <= 1'b1;
-      @(posedge clk);                           // the DUT samples here
-      data_i  <= '0;
-      valid_i <= 1'b0;
-
-      @(negedge clk);
-      check(data_o === value, $sformatf("expected %0h, got %0h", value, data_o));
-      check(valid_o === 1'b1, "valid_o missing");
-    end
+  task automatic check_all_ops(string name, logic [Width-1:0] a, logic [Width-1:0] b,
+                               logic [5:0] expected);
+    check_branch(name, a, b, BR_EQ,  expected[5]);
+    check_branch(name, a, b, BR_NE,  expected[4]);
+    check_branch(name, a, b, BR_LT,  expected[3]);
+    check_branch(name, a, b, BR_GE,  expected[2]);
+    check_branch(name, a, b, BR_LTU, expected[1]);
+    check_branch(name, a, b, BR_GEU, expected[0]);
   endtask
+
+  task automatic test_equal();
+    check_all_ops("0 == 0",   32'h0000_0000, 32'h0000_0000, 6'b100101);
+    check_all_ops("5 == 5",   32'h0000_0005, 32'h0000_0005, 6'b100101);
+    check_all_ops("-1 == -1", 32'hFFFF_FFFF, 32'hFFFF_FFFF, 6'b100101);
+  endtask
+
+  task automatic test_positive();
+    check_all_ops("1 vs 2", 32'h0000_0001, 32'h0000_0002, 6'b011010);
+    check_all_ops("2 vs 1", 32'h0000_0002, 32'h0000_0001, 6'b010101);
+  endtask
+
+  task automatic test_mixed_sign();
+    check_all_ops("-1 vs 1", 32'hFFFF_FFFF, 32'h0000_0001, 6'b011001);
+    check_all_ops("1 vs -1", 32'h0000_0001, 32'hFFFF_FFFF, 6'b010110);
+  endtask
+
+  task automatic test_negative();
+    check_all_ops("-2 vs -1", 32'hFFFF_FFFE, 32'hFFFF_FFFF, 6'b011010);
+    check_all_ops("-1 vs -2", 32'hFFFF_FFFF, 32'hFFFF_FFFE, 6'b010101);
+  endtask
+
+  task automatic test_boundaries();
+    check_all_ops("min vs max", 32'h8000_0000, 32'h7FFF_FFFF, 6'b011001);
+    check_all_ops("max vs min", 32'h7FFF_FFFF, 32'h8000_0000, 6'b010110);
+    check_all_ops("0 vs min",   32'h0000_0000, 32'h8000_0000, 6'b010110);
+    check_all_ops("min vs 0",   32'h8000_0000, 32'h0000_0000, 6'b011001);
+  endtask
+
+  task automatic test_invalid_op();
+    check_branch("invalid 010, a == b", 32'h0000_0005, 32'h0000_0005, branch_op_e'(3'b010), 1'b0);
+    check_branch("invalid 011, a == b", 32'h0000_0005, 32'h0000_0005, branch_op_e'(3'b011), 1'b0);
+    check_branch("invalid 010, a < b",  32'h0000_0001, 32'h0000_0002, branch_op_e'(3'b010), 1'b0);
+    check_branch("invalid 011, a < b",  32'h0000_0001, 32'h0000_0002, branch_op_e'(3'b011), 1'b0);
+  endtask
+
+  
+
 
   // -- Sequence ---------------------------------------------------------
   initial begin
     void'($value$plusargs("TESTCASE=%s", testcase));
 
-    if (selected("test_reset"))       test_reset();
-    if (selected("test_passthrough")) test_passthrough();
+    if (selected("test_equal"))      test_equal();
+    if (selected("test_positive"))   test_positive();
+    if (selected("test_mixed_sign")) test_mixed_sign();
+    if (selected("test_negative"))   test_negative();
+    if (selected("test_boundaries")) test_boundaries();
+    if (selected("test_invalid_op")) test_invalid_op();
+
 
     if (errors != 0) begin
       $display("TEST FAILED  (%0d error(s))", errors);
